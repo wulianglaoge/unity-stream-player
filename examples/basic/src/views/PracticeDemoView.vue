@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import { useRouter } from "vue-router"
-import { UnityStreamPlayer } from "@shisan/unity-stream-player"
+import { UnityStreamPlayer } from "unity-stream-player"
 
 const url = ref(import.meta.env.VITE_URS_SIGNAL_URL)
 const router = useRouter()

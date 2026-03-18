@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@shisan/unity-stream-player": "workspace:*",
+    "unity-stream-player": "workspace:*",
     "element-plus": "^2.5.0",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0"

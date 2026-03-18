@@ -10,7 +10,9 @@
       "Bash(node:*)",
       "Bash(pnpm:*)",
       "Bash(npx vite:*)",
-      "Bash(npx vue-tsc:*)"
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm view:*)",
+      "Bash(npm publish:*)"
     ]
   }
 }

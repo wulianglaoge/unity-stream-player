@@ -5,7 +5,7 @@
         <div class="badge">Vue 3 组件示例</div>
         <h1>Unity Stream Player</h1>
         <p class="subtitle">
-          这是一个演示项目，展示如何使用 <code>@shisan/unity-stream-player</code> 组件库
+          这是一个演示项目，展示如何使用 <code>unity-stream-player</code> 组件库
         </p>
 
         <div class="action-buttons">
@@ -31,7 +31,7 @@
           <div class="struct-card lib">
             <div class="struct-header">
               <span class="tag">组件库</span>
-              <h3>@shisan/unity-stream-player</h3>
+              <h3>unity-stream-player</h3>
             </div>
             <p>提供 UnityStreamPlayer 组件，封装 WebRTC 连接、视频渲染和输入控制</p>
             <ul>
@@ -67,13 +67,13 @@
         <div class="usage-grid">
           <div class="usage-card">
             <h4>1. 安装组件</h4>
-            <pre><code>npm install @shisan/unity-stream-player</code></pre>
+            <pre><code>npm install unity-stream-player</code></pre>
           </div>
 
           <div class="usage-card">
             <h4>2. 引入使用</h4>
             <pre><code>&lt;script setup&gt;
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
 &lt;/script&gt;
 
 &lt;template&gt;

@@ -184,8 +184,8 @@
 </template>
 
 <script setup lang="ts">
-import { UnityStreamPlayer, type ConnectionStatus, type ConnectionError, type DataChannelMessage } from "@shisan/unity-stream-player"
-import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { UnityStreamPlayer, type ConnectionStatus, type ConnectionError, type DataChannelMessage } from "unity-stream-player"
+import { ref, computed, onBeforeUnmount } from "vue"
 
 const defaultUrl = import.meta.env.VITE_URS_SIGNAL_URL || "ws://localhost:80"
 const url = ref(defaultUrl)
