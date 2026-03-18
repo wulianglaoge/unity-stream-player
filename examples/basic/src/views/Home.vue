@@ -74,6 +74,7 @@
             <h4>2. 引入使用</h4>
             <pre><code>&lt;script setup&gt;
 import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 &lt;/script&gt;
 
 &lt;template&gt;

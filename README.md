@@ -1,4 +1,4 @@
-# Unity Stream Player Vue
+# Unity Stream Player
 
 Vue 3 开源组件，用于 Unity Render Streaming WebRTC 播放器，具有多种特性。
 
@@ -17,21 +17,23 @@ Vue 3 开源组件，用于 Unity Render Streaming WebRTC 播放器，具有多�
 ## 安装
 
 ```bash
-npm install @shisan/unity-stream-player
+npm install unity-stream-player
 # 或
-yarn add @shisan/unity-stream-player
+yarn add unity-stream-player
 # 或
-pnpm add @shisan/unity-stream-player
+pnpm add unity-stream-player
 ```
 
 ## 快速开始
+
+> ⚠️ **重要**: 使用时必须导入 CSS 样式文件，否则组件显示会异常。
 
 ### 全局注册
 
 ```ts
 import { createApp } from 'vue'
-import UnityStreamPlayerPlugin from '@shisan/unity-stream-player'
-import '@shisan/unity-stream-player/dist/style.css'
+import UnityStreamPlayerPlugin from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 const app = createApp(App)
 app.use(UnityStreamPlayerPlugin)
@@ -41,8 +43,8 @@ app.use(UnityStreamPlayerPlugin)
 
 ```vue
 <script setup>
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
-import '@shisan/unity-stream-player/dist/style.css'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 </script>
 
 <template>
@@ -133,7 +135,8 @@ interface ConnectionError {
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 const playerRef = ref()
 
@@ -185,7 +188,8 @@ interface Diagnostics {
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 const playerRef = ref()
 
@@ -298,7 +302,7 @@ pnpm run release          # 发布到 npm
 在发布前，请修改以下内容：
 
 1. **包名** (`packages/unity-stream-player/package.json`)
-   - 将 `@shisan/unity-stream-player` 修改为你的实际包名
+   - 当前包名: `unity-stream-player`
 
 2. **作者信息**
    - 修改 `author` 字段为你的信息

@@ -17,8 +17,13 @@ Vue 3 组件，用于 Unity Render Streaming WebRTC 播放器。
 ## 安装
 
 ```bash
-npm install @shisan/unity-stream-player
+npm install unity-stream-player
 ```
+
+> ⚠️ **重要**: 使用时必须导入 CSS 样式文件，否则组件显示会异常：
+> ```ts
+> import 'unity-stream-player/dist/style.css'
+> ```
 
 ## 使用
 
@@ -26,8 +31,8 @@ npm install @shisan/unity-stream-player
 
 ```vue
 <script setup>
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
-import '@shisan/unity-stream-player/dist/style.css'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 </script>
 
 <template>
@@ -39,7 +44,8 @@ import '@shisan/unity-stream-player/dist/style.css'
 
 ```vue
 <script setup>
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 function handleConnect(connectionId) {
   console.log('连接成功:', connectionId)
@@ -68,7 +74,8 @@ function handleError(error) {
 
 ```vue
 <script setup>
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 </script>
 
 <template>
@@ -88,7 +95,8 @@ import { UnityStreamPlayer } from '@shisan/unity-stream-player'
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 const playerRef = ref()
 
@@ -116,7 +124,8 @@ function reconnect() {
 ```vue
 <script setup>
 import { ref } from 'vue'
-import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import { UnityStreamPlayer } from 'unity-stream-player'
+import 'unity-stream-player/dist/style.css'
 
 const playerRef = ref()
 const messages = ref([])
