@@ -9,25 +9,25 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { title: '方案对比' }
+    meta: { title: '首页' }
   },
   {
-    path: '/webrtc',
-    name: 'WebRTC',
+    path: '/demo',
+    name: 'Demo',
     component: WebRTCView,
-    meta: { title: 'WebRTC方案演示' }
+    meta: { title: '基础演示' }
   },
   {
     path: '/iframe',
     name: 'Iframe',
     component: IframeView,
-    meta: { title: 'Iframe方案演示' }
+    meta: { title: 'Iframe 嵌入' }
   },
   {
     path: '/practice',
-    name: 'PracticeDemo',
+    name: 'Practice',
     component: PracticeDemoView,
-    meta: { title: '实战演示' }
+    meta: { title: '全屏演示' }
   }
 ]
 
@@ -37,7 +37,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
-  document.title = `${to.meta.title || '页面'} - Unity实时渲染流对比示例`
+  document.title = `${to.meta.title || '页面'} - Unity Stream Player 示例`
   next()
 })
 

@@ -1,5 +1,5 @@
 {
-  "name": "@your-scope/unity-stream-player",
+  "name": "@shisan/unity-stream-player",
   "version": "1.0.0",
   "description": "Vue 3 component for Unity Render Streaming WebRTC player",
   "type": "module",

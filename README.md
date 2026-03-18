@@ -1,6 +1,6 @@
 # Unity Stream Player Vue
 
-Vue 3 组件库，用于 Unity Render Streaming WebRTC 播放器。
+Vue 3 开源组件，用于 Unity Render Streaming WebRTC 播放器，具有多种特性。
 
 ## 特性
 
@@ -9,16 +9,19 @@ Vue 3 组件库，用于 Unity Render Streaming WebRTC 播放器。
 - 📺 自动全屏支持
 - 📊 实时性能诊断数据
 - 🔧 可配置的适应模式
+- 🔄 **自动重连机制**
+- 📡 **连接状态回调**
+- 📨 **双向 DataChannel 通信**
 - 💪 TypeScript 支持
 
 ## 安装
 
 ```bash
-npm install @your-scope/unity-stream-player
+npm install @shisan/unity-stream-player
 # 或
-yarn add @your-scope/unity-stream-player
+yarn add @shisan/unity-stream-player
 # 或
-pnpm add @your-scope/unity-stream-player
+pnpm add @shisan/unity-stream-player
 ```
 
 ## 快速开始
@@ -27,8 +30,8 @@ pnpm add @your-scope/unity-stream-player
 
 ```ts
 import { createApp } from 'vue'
-import UnityStreamPlayerPlugin from '@your-scope/unity-stream-player'
-import '@your-scope/unity-stream-player/dist/style.css'
+import UnityStreamPlayerPlugin from '@shisan/unity-stream-player'
+import '@shisan/unity-stream-player/dist/style.css'
 
 const app = createApp(App)
 app.use(UnityStreamPlayerPlugin)
@@ -38,8 +41,8 @@ app.use(UnityStreamPlayerPlugin)
 
 ```vue
 <script setup>
-import { UnityStreamPlayer } from '@your-scope/unity-stream-player'
-import '@your-scope/unity-stream-player/dist/style.css'
+import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+import '@shisan/unity-stream-player/dist/style.css'
 </script>
 
 <template>
@@ -54,44 +57,172 @@ import '@your-scope/unity-stream-player/dist/style.css'
 
 ## Props
 
+### 基础配置
+
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `signalingUrl` | `string` | `""` | WebSocket 信令服务器地址 |
+| `signalingUrl` | `string` | `undefined` | WebSocket 信令服务器地址 |
 | `autoFullscreen` | `boolean` | `false` | 首帧到来时是否自动全屏 |
 | `contentHint` | `"detail" \| "text" \| "motion" \| ""` | `"detail"` | 视频轨道内容提示 |
 | `fit` | `"contain" \| "cover" \| "fill"` | `"contain"` | 视频适应模式 |
+| `showConnectedIndicator` | `boolean` | `false` | 连接成功后是否显示指示器 |
+
+### 自动重连配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enableReconnect` | `boolean` | `true` | 是否启用自动重连 |
+| `maxReconnectAttempts` | `number` | `3` | 最大重连次数 |
+| `reconnectInterval` | `number` | `1000` | 初始重连间隔（毫秒） |
+| `reconnectBackoffMultiplier` | `number` | `2` | 重连间隔倍增因子（指数退避） |
+| `maxReconnectInterval` | `number` | `30000` | 最大重连间隔（毫秒） |
+
+### 事件回调
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `onConnect` | `(connectionId: string) => void` | 连接成功回调 |
+| `onDisconnect` | `(connectionId: string, reason: string) => void` | 连接断开回调 |
+| `onError` | `(error: ConnectionError) => void` | 连接错误回调 |
+| `onStatusChange` | `(status: ConnectionStatus, prevStatus: ConnectionStatus) => void` | 状态变化回调 |
+
+## 事件
+
+组件同时支持通过事件监听：
+
+```vue
+<UnityStreamPlayer
+  signaling-url="ws://localhost:8080"
+  @connect="handleConnect"
+  @disconnect="handleDisconnect"
+  @error="handleError"
+  @status-change="handleStatusChange"
+/>
+```
+
+## 类型定义
+
+### ConnectionStatus
+
+```ts
+type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error' | 'disconnected'
+```
+
+- `idle`: 初始状态，未配置地址
+- `connecting`: 正在连接
+- `connected`: 已连接
+- `reconnecting`: 正在重连
+- `error`: 连接错误
+- `disconnected`: 已断开（手动断开时）
+
+### ConnectionError
+
+```ts
+interface ConnectionError {
+  type: 'websocket' | 'webrtc' | 'signaling' | 'unknown'
+  message: string
+  timestamp: number
+  retryable: boolean
+}
+```
 
 ## 暴露的方法
 
-通过 `ref` 可以访问组件方法：
+通过 `ref` 可以访问以下方法：
 
 ```vue
 <script setup>
 import { ref } from 'vue'
+import { UnityStreamPlayer } from '@shisan/unity-stream-player'
 
 const playerRef = ref()
 
 async function getStats() {
   const stats = await playerRef.value?.getDiagnostics()
   console.log(stats)
-  // {
-  //   width: 1920,
-  //   height: 1080,
-  //   bitrateKbps: 5000,
-  //   fps: 60,
-  //   packetsLost: 0,
-  //   jitterMs: 5,
-  //   rttMs: 20,
-  //   framesDropped: 0,
-  //   codec: "video/VP8",
-  //   clockRate: 90000
-  // }
 }
+
+function reconnect() {
+  playerRef.value?.reconnect()
+}
+
+// 获取当前状态
+const currentStatus = playerRef.value?.connectionStatus
 </script>
 
 <template>
   <UnityStreamPlayer ref="playerRef" signaling-url="ws://localhost:8080" />
   <button @click="getStats">获取统计信息</button>
+  <button @click="reconnect">手动重连</button>
+</template>
+```
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `getDiagnostics()` | `Promise<Diagnostics>` | 获取诊断数据 |
+| `reconnect()` | `void` | 手动触发重连 |
+| `connectionStatus` | `ConnectionStatus` | 当前连接状态（只读） |
+
+### Diagnostics 接口
+
+```ts
+interface Diagnostics {
+  width: number | null          // 视频宽度
+  height: number | null         // 视频高度
+  bitrateKbps: number | null    // 码率（kbps）
+  fps: number | null            // 帧率
+  packetsLost: number | null    // 丢包数
+  jitterMs: number | null       // 抖动（毫秒）
+  rttMs: number | null          // 往返延迟（毫秒）
+  framesDropped: number | null  // 丢弃帧数
+  codec: string | null          // 编解码器
+  clockRate: number | null      // 时钟频率
+}
+```
+
+## 完整示例
+
+```vue
+<script setup>
+import { ref } from 'vue'
+import { UnityStreamPlayer } from '@shisan/unity-stream-player'
+
+const playerRef = ref()
+
+// 连接状态
+function handleConnect(connectionId) {
+  console.log('连接成功:', connectionId)
+}
+
+function handleDisconnect(connectionId, reason) {
+  console.log('连接断开:', connectionId, '原因:', reason)
+}
+
+function handleError(error) {
+  console.error('连接错误:', error)
+  // error.type: 'websocket' | 'webrtc' | 'signaling' | 'unknown'
+  // error.message: 错误描述
+  // error.retryable: 是否可以重试
+}
+
+function handleStatusChange(status, prevStatus) {
+  console.log(`状态变化: ${prevStatus} -> ${status}`)
+}
+</script>
+
+<template>
+  <UnityStreamPlayer
+    ref="playerRef"
+    signaling-url="ws://localhost:8080"
+    :enable-reconnect="true"
+    :max-reconnect-attempts="5"
+    :reconnect-interval="2000"
+    :show-connected-indicator="true"
+    @connect="handleConnect"
+    @disconnect="handleDisconnect"
+    @error="handleError"
+    @status-change="handleStatusChange"
+  />
 </template>
 ```
 
@@ -131,8 +262,8 @@ pnpm run release
 
 ```bash
 # 首次克隆项目
-git clone <your-repo>
-cd webrtc-iframe-vue
+git clone https://github.com/ywulianglaoge/unity-stream-player.git
+cd unity-stream-player
 pnpm install
 
 # 日常开发（修改组件代码）
@@ -167,7 +298,7 @@ pnpm run release          # 发布到 npm
 在发布前，请修改以下内容：
 
 1. **包名** (`packages/unity-stream-player/package.json`)
-   - 将 `@your-scope/unity-stream-player` 修改为你的实际包名
+   - 将 `@shisan/unity-stream-player` 修改为你的实际包名
 
 2. **作者信息**
    - 修改 `author` 字段为你的信息

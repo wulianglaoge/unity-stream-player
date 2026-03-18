@@ -45,11 +45,11 @@
               <div class="v">{{ statsText.rtt }}</div>
             </div>
             <div class="row">
-              <div class="k">Codec</div>
+              <div class="k">编码格式</div>
               <div class="v">{{ statsText.codec }}</div>
             </div>
             <div class="row">
-              <div class="k">Dropped</div>
+              <div class="k">丢弃帧</div>
               <div class="v">{{ statsText.dropped }}</div>
             </div>
           </div>
@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import { useRouter } from "vue-router"
-import { UnityStreamPlayer } from "@your-scope/unity-stream-player"
+import { UnityStreamPlayer } from "@shisan/unity-stream-player"
 
 const url = ref(import.meta.env.VITE_URS_SIGNAL_URL)
 const router = useRouter()
@@ -128,7 +128,7 @@ const statsText = computed(() => {
     packetsLost: s.packetsLost != null ? `${fmtNumber(s.packetsLost, 0)}` : "-",
     jitter: s.jitterMs != null ? `${fmtNumber(s.jitterMs, 1)} ms` : "-",
     rtt: s.rttMs != null ? `${fmtNumber(s.rttMs, 1)} ms` : "-",
-    codec: s.codec || "-",
+    codec: s.codec ? s.codec.replace('video/', '') : "-",
     dropped: s.framesDropped != null ? `${fmtNumber(s.framesDropped, 0)}` : "-"
   }
 })
@@ -215,7 +215,9 @@ const statsText = computed(() => {
 }
 
 .info-panel {
-  margin-top: 10px;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
   width: min(360px, calc(100vw - 24px));
   border-radius: 16px;
   padding: 14px 14px 12px;

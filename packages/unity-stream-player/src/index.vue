@@ -1,5 +1,40 @@
 <template>
   <div ref="playerRef" class="player" :style="playerStyle" @contextmenu.prevent>
+    <!-- 未配置地址 -->
+    <div v-if="connectionStatus === 'idle' && !hasUrl" class="overlay overlay-info">
+      <span>未配置信令地址</span>
+    </div>
+    <!-- 连接中 -->
+    <div v-else-if="connectionStatus === 'connecting'" class="overlay overlay-info">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <span>连接中...</span>
+        <span v-if="retryCount > 0" class="retry-hint">第 {{ retryCount }} 次重试</span>
+      </div>
+    </div>
+    <!-- 重连中 -->
+    <div v-else-if="connectionStatus === 'reconnecting'" class="overlay overlay-warning">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <span>连接断开，正在重连...</span>
+        <span class="retry-hint">第 {{ retryCount }} 次重试 / 最多 {{ maxReconnectAttempts }} 次</span>
+      </div>
+    </div>
+    <!-- 连接失败 -->
+    <div v-else-if="connectionStatus === 'error'" class="overlay overlay-error">
+      <div class="error-container">
+        <span>连接失败</span>
+        <span v-if="lastErrorMessage" class="error-detail">{{ lastErrorMessage }}</span>
+        <button v-if="enableReconnect" class="retry-btn" @click.stop="manualReconnect">
+          点击重试
+        </button>
+      </div>
+    </div>
+    <!-- 已连接 -->
+    <div v-else-if="connectionStatus === 'connected' && showConnectedIndicator" class="overlay overlay-success">
+      <span>已连接</span>
+    </div>
+
     <video
       ref="videoRef"
       class="video"
@@ -7,20 +42,11 @@
       playsinline
       muted
     />
-    <div v-if="!hasUrl" class="overlay overlay-info">
-      <span>未配置信令地址</span>
-    </div>
-    <div v-else-if="isConnecting" class="overlay overlay-info">
-      <span>连接中...</span>
-    </div>
-    <div v-else-if="hasError" class="overlay overlay-error">
-      <span>连接失败，请检查服务端</span>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, defineExpose } from "vue"
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue"
 
 import { WebSocketSignaling } from "./signaling.js"
 import { RenderStreaming } from "./renderstreaming.js"
@@ -40,6 +66,24 @@ export interface Diagnostics {
   clockRate: number | null
 }
 
+/** 连接状态类型 */
+export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error' | 'disconnected'
+
+/** 连接错误类型 */
+export interface ConnectionError {
+  type: 'websocket' | 'webrtc' | 'signaling' | 'unknown'
+  message: string
+  timestamp: number
+  retryable: boolean
+}
+
+/** DataChannel 消息类型 */
+export interface DataChannelMessage {
+  data: string | ArrayBuffer
+  timestamp: number
+  connectionId: string
+}
+
 const props = defineProps<{
   /** WebSocket 信令服务器地址 */
   signalingUrl?: string
@@ -49,18 +93,63 @@ const props = defineProps<{
   contentHint?: "" | "detail" | "text" | "motion"
   /** 视频适应模式 */
   fit?: "contain" | "cover" | "fill"
+  /** 是否启用自动重连 */
+  enableReconnect?: boolean
+  /** 最大重连次数，默认 3 */
+  maxReconnectAttempts?: number
+  /** 初始重连间隔(毫秒)，默认 1000 */
+  reconnectInterval?: number
+  /** 重连间隔倍增因子，默认 2(指数退避) */
+  reconnectBackoffMultiplier?: number
+  /** 最大重连间隔(毫秒)，默认 30000 */
+  maxReconnectInterval?: number
+  /** 连接成功后是否显示指示器，默认 false */
+  showConnectedIndicator?: boolean
+  /** 连接成功回调 */
+  onConnect?: (connectionId: string) => void
+  /** 连接断开回调 */
+  onDisconnect?: (connectionId: string, reason: string) => void
+  /** 连接错误回调 */
+  onError?: (error: ConnectionError) => void
+  /** 连接状态变化回调 */
+  onStatusChange?: (status: ConnectionStatus, prevStatus: ConnectionStatus) => void
+  /** 收到 DataChannel 消息回调 */
+  onDataReceived?: (message: DataChannelMessage) => void
+  /** DataChannel 打开回调 */
+  onDataChannelOpen?: (connectionId: string) => void
+  /** DataChannel 关闭回调 */
+  onDataChannelClose?: (connectionId: string) => void
+  /** DataChannel 标签名，默认 'data' */
+  dataChannelLabel?: string
+}>()
+
+const emit = defineEmits<{
+  connect: [connectionId: string]
+  disconnect: [connectionId: string, reason: string]
+  error: [error: ConnectionError]
+  'status-change': [status: ConnectionStatus, prevStatus: ConnectionStatus]
+  'data-received': [message: DataChannelMessage]
+  'datachannel-open': [connectionId: string]
+  'datachannel-close': [connectionId: string]
 }>()
 
 const autoFullscreen = computed(() => props.autoFullscreen ?? false)
 const contentHint = computed(() => props.contentHint ?? "detail")
 const fit = computed(() => props.fit ?? "contain")
+const enableReconnect = computed(() => props.enableReconnect ?? true)
+const maxReconnectAttempts = computed(() => props.maxReconnectAttempts ?? 3)
+const reconnectInterval = computed(() => props.reconnectInterval ?? 1000)
+const reconnectBackoffMultiplier = computed(() => props.reconnectBackoffMultiplier ?? 2)
+const maxReconnectInterval = computed(() => props.maxReconnectInterval ?? 30000)
+const showConnectedIndicator = computed(() => props.showConnectedIndicator ?? false)
 
 const playerRef = ref<HTMLElement | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
-const isConnecting = ref(false)
-const hasError = ref(false)
-const isFullscreen = ref(false)
-const videoAspectRatio = ref<string | null>(null) // string like "16 / 9"
+const connectionStatus = ref<ConnectionStatus>('idle')
+const videoAspectRatio = ref<string | null>(null)
+const retryCount = ref(0)
+const lastErrorMessage = ref('')
+const connectionId = ref('')
 
 const hasUrl = computed(() => !!props.signalingUrl)
 
@@ -68,12 +157,19 @@ const playerStyle = computed(() => {
   return videoAspectRatio.value ? { aspectRatio: videoAspectRatio.value } : undefined
 })
 
+// 重连相关
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempts = 0
+let isManualDisconnect = false
+
+// 组件内部状态
 let signaling: any = null
 let renderStreaming: any = null
 let remoteStream: any = null
 let inputRemoting: any = null
 let sender: any = null
 let inputChannel: any = null
+let dataChannel: any = null
 let resizeObserver: any = null
 let onWindowResize: any = null
 let onFullscreenChange: any = null
@@ -84,20 +180,41 @@ let lastInboundTsMs: any = null
 let lastFramesDecoded: any = null
 let lastFramesTsMs: any = null
 
+function updateStatus(newStatus: ConnectionStatus) {
+  const prevStatus = connectionStatus.value
+  if (prevStatus !== newStatus) {
+    connectionStatus.value = newStatus
+    props.onStatusChange?.(newStatus, prevStatus)
+    emit('status-change', newStatus, prevStatus)
+  }
+}
+
+function createError(type: ConnectionError['type'], message: string, retryable = true): ConnectionError {
+  return {
+    type,
+    message,
+    timestamp: Date.now(),
+    retryable
+  }
+}
+
+function reportError(error: ConnectionError) {
+  lastErrorMessage.value = error.message
+  props.onError?.(error)
+  emit('error', error)
+}
+
 onMounted(() => {
   if (hasUrl.value) {
     initConnection()
   }
 
   onWindowResize = () => {
-    // 触发重排以避免某些浏览器全屏/旋转后画面尺寸不同步
     applyVideoLayout()
   }
   window.addEventListener("resize", onWindowResize, { passive: true })
 
   onFullscreenChange = () => {
-    const current = document.fullscreenElement
-    isFullscreen.value = !!current && current === playerRef.value
     applyVideoLayout()
   }
   document.addEventListener("fullscreenchange", onFullscreenChange, { passive: true })
@@ -113,12 +230,19 @@ watch(
   async (newUrl, oldUrl) => {
     if (newUrl === oldUrl) return
 
-    // 先清理旧连接
+    // 清除重连计时器
+    clearReconnectTimer()
+    reconnectAttempts = 0
+    retryCount.value = 0
+    isManualDisconnect = false
+
     await cleanup()
-    hasError.value = false
+    lastErrorMessage.value = ''
 
     if (newUrl) {
       initConnection()
+    } else {
+      updateStatus('idle')
     }
   }
 )
@@ -127,7 +251,6 @@ watch(
   () => props.autoFullscreen,
   async (enabled) => {
     if (!enabled) return
-    // 尽量请求一次；浏览器若要求用户手势会拒绝（忽略即可）
     await nextTick()
     await maybeRequestFullscreen()
   }
@@ -138,26 +261,82 @@ watch(
   () => applyVideoLayout()
 )
 
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+}
+
+function scheduleReconnect() {
+  if (!enableReconnect.value) return
+  if (isManualDisconnect) return
+  if (reconnectAttempts >= maxReconnectAttempts.value) {
+    updateStatus('error')
+    reportError(createError('websocket', '重连次数已达上限，请检查网络或服务端状态', false))
+    return
+  }
+
+  reconnectAttempts++
+  retryCount.value = reconnectAttempts
+  updateStatus('reconnecting')
+
+  // 计算退避间隔
+  const interval = Math.min(
+    reconnectInterval.value * Math.pow(reconnectBackoffMultiplier.value, reconnectAttempts - 1),
+    maxReconnectInterval.value
+  )
+
+  reconnectTimer = setTimeout(() => {
+    if (!isManualDisconnect && props.signalingUrl) {
+      initConnection()
+    }
+  }, interval)
+}
+
+async function manualReconnect() {
+  clearReconnectTimer()
+  reconnectAttempts = 0
+  retryCount.value = 0
+  isManualDisconnect = false
+  lastErrorMessage.value = ''
+  await cleanup()
+  await initConnection()
+}
+
 async function initConnection() {
   try {
     if (!props.signalingUrl) {
       return
     }
 
-    isConnecting.value = true
-    hasError.value = false
+    updateStatus('connecting')
+    isManualDisconnect = false
 
     // 创建 WebSocket 信令连接
     signaling = new WebSocketSignaling()
-    
-    // 重写 WebSocket 连接 URL
-    signaling.websocket = new WebSocket(props.signalingUrl)
-    signaling.websocket.onopen = () => {
-      signaling.isWsOpen = true
-    }
-    signaling.websocket.onclose = () => {
-      signaling.isWsOpen = false
-    }
+
+    // 等待 WebSocket 连接结果
+    await new Promise<void>((resolve, reject) => {
+      signaling.websocket = new WebSocket(props.signalingUrl!)
+
+      signaling.websocket.onopen = () => {
+        signaling.isWsOpen = true
+        resolve()
+      }
+
+      signaling.websocket.onclose = (event: CloseEvent) => {
+        signaling.isWsOpen = false
+        const reason = event.wasClean ? '连接正常关闭' : '连接异常断开'
+        reject(new Error(`WebSocket ${reason}`))
+      }
+
+      signaling.websocket.onerror = () => {
+        reject(new Error('WebSocket connection error'))
+      }
+    })
+
+    // 连接成功后再设置消息处理
     signaling.websocket.onmessage = (event: MessageEvent) => {
       const msg = JSON.parse(event.data)
       if (!msg || !signaling) {
@@ -185,24 +364,55 @@ async function initConnection() {
       }
     }
 
+    // WebSocket 断开处理（用于重连）
+    signaling.websocket.onclose = () => {
+      signaling.isWsOpen = false
+      if (!isManualDisconnect && connectionStatus.value !== 'error') {
+        const currentConnectionId = connectionId.value
+        connectionId.value = ''
+
+        // 触发 DataChannel 关闭事件
+        if (dataChannel) {
+          dataChannel = null
+          props.onDataChannelClose?.(currentConnectionId)
+          emit('datachannel-close', currentConnectionId)
+        }
+
+        props.onDisconnect?.(currentConnectionId, 'websocket_closed')
+        emit('disconnect', currentConnectionId, 'websocket_closed')
+        scheduleReconnect()
+      }
+    }
+
     // 创建 RenderStreaming 实例
     renderStreaming = new RenderStreaming(signaling, {})
 
     renderStreaming.onAddChannel = (data: any) => {
       const channel = data.channel
-      if (channel && channel.label === "input" && videoRef.value) {
+      if (!channel) return
+
+      if (channel.label === "input" && videoRef.value) {
         inputChannel = channel
         setupInputSender(videoRef.value, inputChannel)
+      } else if (channel.label === (props.dataChannelLabel || 'data')) {
+        dataChannel = channel
+        setupDataChannel(dataChannel)
       }
     }
 
     renderStreaming.onConnect = () => {
       try {
+        // 创建输入通道（用于鼠标/键盘等输入）
         inputChannel = renderStreaming.createDataChannel("input")
 
         if (videoRef.value && inputChannel) {
           setupInputSender(videoRef.value, inputChannel)
         }
+
+        // 创建通用数据通道（用于双向通信）
+        const channelLabel = props.dataChannelLabel || 'data'
+        dataChannel = renderStreaming.createDataChannel(channelLabel)
+        setupDataChannel(dataChannel)
       } catch (error) {
         console.warn("Failed to setup onConnect handlers:", error)
       }
@@ -213,10 +423,9 @@ async function initConnection() {
       if (!remoteStream) {
         remoteStream = new MediaStream()
       }
-      
+
       if (data.track) {
         try {
-          // 提示浏览器优先保证细节清晰度（对桌面/3D 场景通常更合适）
           if (typeof contentHint.value === "string" && "contentHint" in data.track) {
             data.track.contentHint = contentHint.value
           }
@@ -225,26 +434,50 @@ async function initConnection() {
           console.warn('Failed to add track to stream:', error)
         }
       }
-      
+
       if (videoRef.value && remoteStream.getTracks().length > 0) {
         videoRef.value.srcObject = remoteStream
         bindVideoMetadataListeners(videoRef.value)
         applyVideoLayout()
-        // 首帧到来时尝试触发自动全屏（可能被浏览器策略拒绝）
         if (autoFullscreen.value) {
           maybeRequestFullscreen()
         }
       }
     }
 
-    // 启动 RenderStreaming（内部会等待 WebSocket 打开）
+    // 启动 RenderStreaming
     await renderStreaming.start()
-    await renderStreaming.createConnection()
-    isConnecting.value = false
-  } catch (error) {
+    const connResult = await renderStreaming.createConnection()
+    connectionId.value = connResult?.connectionId || ''
+
+    // 连接成功，重置重连计数
+    reconnectAttempts = 0
+    retryCount.value = 0
+    lastErrorMessage.value = ''
+    updateStatus('connected')
+
+    // 触发连接成功回调
+    props.onConnect?.(connectionId.value)
+    emit('connect', connectionId.value)
+
+  } catch (error: any) {
     console.error('Error initializing connection:', error)
-    hasError.value = true
-    isConnecting.value = false
+
+    const errorMessage = error?.message || '未知错误'
+    const isRetryable = errorMessage.includes('WebSocket') || errorMessage.includes('连接')
+
+    reportError(createError(
+      errorMessage.includes('WebSocket') ? 'websocket' : 'webrtc',
+      errorMessage,
+      isRetryable
+    ))
+
+    updateStatus('error')
+
+    // 尝试重连
+    if (isRetryable && enableReconnect.value) {
+      scheduleReconnect()
+    }
   }
 }
 
@@ -259,7 +492,6 @@ function bindVideoMetadataListeners(videoEl: HTMLVideoElement) {
     }
   }
 
-  // loadedmetadata 只触发一次，但分辨率可能在 renegotiation 后变化，用 resize 再兜底
   videoEl.onloadedmetadata = () => {
     updateAspect()
     applyVideoLayout()
@@ -282,7 +514,6 @@ async function maybeRequestFullscreen() {
 
   const canFullscreen =
     (typeof document.fullscreenEnabled === "boolean" ? document.fullscreenEnabled : true) ||
-    // Safari/iOS
     typeof (el as any).webkitRequestFullscreen === "function"
   if (!canFullscreen) return
 
@@ -295,7 +526,6 @@ async function maybeRequestFullscreen() {
     }
     didAutoFullscreen = true
   } catch (_) {
-    // 大多数浏览器会要求用户手势；失败就保持非全屏
     autoFullscreenAttempted = false
   }
 }
@@ -305,12 +535,10 @@ function applyVideoLayout() {
   const containerEl = playerRef.value
   if (!videoEl || !containerEl) return
 
-  // 关键：强制 video 以容器为基准铺满，再用 object-fit 控制画面比例
   videoEl.style.width = "100%"
   videoEl.style.height = "100%"
   videoEl.style.objectFit = fit.value
 
-  // 触发一次 layout flush，避免部分浏览器 resize 后视频渲染区域不更新
   // eslint-disable-next-line no-unused-expressions
   containerEl.offsetHeight
 }
@@ -337,7 +565,6 @@ function findInboundVideoRtp(report: any): any {
     if (stat.type !== "inbound-rtp") return
     const kind = stat.kind || stat.mediaType
     if (kind !== "video") return
-    // 选当前活跃/有数据的那条
     if (!inbound) inbound = stat
     const bytes = toNumber(stat.bytesReceived)
     const inboundBytes = toNumber(inbound.bytesReceived)
@@ -375,7 +602,6 @@ async function getDiagnostics(): Promise<Diagnostics> {
 
   const nowMs = performance.now()
 
-  // bitrate (kbps) from bytesReceived delta
   let bitrateKbps = null
   const bytesReceived = inbound ? toNumber(inbound.bytesReceived) : null
   if (bytesReceived != null) {
@@ -392,7 +618,6 @@ async function getDiagnostics(): Promise<Diagnostics> {
     lastInboundTsMs = nowMs
   }
 
-  // fps from framesDecoded delta (fallback to stats framesPerSecond if present)
   let fps = inbound ? toNumber(inbound.framesPerSecond) : null
   const framesDecoded = inbound ? toNumber(inbound.framesDecoded) : null
   if (fps == null && framesDecoded != null) {
@@ -434,7 +659,6 @@ async function getDiagnostics(): Promise<Diagnostics> {
 }
 
 function setupInputSender(videoElement: HTMLVideoElement, channel: RTCDataChannel) {
-  // 构建输入发送端（鼠标/键盘/触摸/手柄）
   sender = new Sender(videoElement)
   sender.addMouse()
   sender.addKeyboard()
@@ -445,9 +669,7 @@ function setupInputSender(videoElement: HTMLVideoElement, channel: RTCDataChanne
 
   inputRemoting = new InputRemoting(sender)
 
-  // 将 InputRemoting 绑定到 datachannel
   channel.onopen = async () => {
-    // 等待 Unity 端准备好
     await new Promise((resolve) => setTimeout(resolve, 100))
     inputRemoting.startSending()
   }
@@ -455,13 +677,83 @@ function setupInputSender(videoElement: HTMLVideoElement, channel: RTCDataChanne
   inputRemoting.subscribe(new Observer(channel))
 }
 
+function setupDataChannel(channel: RTCDataChannel) {
+  channel.onopen = () => {
+    console.log(`DataChannel '${channel.label}' opened`)
+    props.onDataChannelOpen?.(connectionId.value)
+    emit('datachannel-open', connectionId.value)
+  }
+
+  channel.onclose = () => {
+    console.log(`DataChannel '${channel.label}' closed`)
+    props.onDataChannelClose?.(connectionId.value)
+    emit('datachannel-close', connectionId.value)
+  }
+
+  channel.onmessage = (event: MessageEvent) => {
+    const message: DataChannelMessage = {
+      data: event.data,
+      timestamp: Date.now(),
+      connectionId: connectionId.value
+    }
+    props.onDataReceived?.(message)
+    emit('data-received', message)
+  }
+
+  channel.onerror = (error: Event) => {
+    console.error(`DataChannel '${channel.label}' error:`, error)
+  }
+}
+
+function sendData(data: string | object): boolean {
+  if (!dataChannel || dataChannel.readyState !== 'open') {
+    console.warn('DataChannel is not ready, cannot send data')
+    return false
+  }
+
+  try {
+    const payload = typeof data === 'string' ? data : JSON.stringify(data)
+    dataChannel.send(payload)
+    return true
+  } catch (error) {
+    console.error('Failed to send data:', error)
+    return false
+  }
+}
+
+function sendBinaryData(data: ArrayBuffer | Uint8Array): boolean {
+  if (!dataChannel || dataChannel.readyState !== 'open') {
+    console.warn('DataChannel is not ready, cannot send binary data')
+    return false
+  }
+
+  try {
+    dataChannel.send(data)
+    return true
+  } catch (error) {
+    console.error('Failed to send binary data:', error)
+    return false
+  }
+}
+
 async function cleanup() {
+  clearReconnectTimer()
+
   if (inputRemoting) {
     inputRemoting.stopSending()
   }
   inputRemoting = null
   sender = null
   inputChannel = null
+
+  // 触发 DataChannel 关闭事件
+  if (dataChannel) {
+    const currentConnectionId = connectionId.value
+    dataChannel = null
+    props.onDataChannelClose?.(currentConnectionId)
+    emit('datachannel-close', currentConnectionId)
+  }
+
   didAutoFullscreen = false
   autoFullscreenAttempted = false
 
@@ -471,9 +763,15 @@ async function cleanup() {
   if (signaling) {
     await signaling.stop()
   }
+  signaling = null
+  renderStreaming = null
+  remoteStream = null
 }
 
 onBeforeUnmount(async () => {
+  isManualDisconnect = true
+  clearReconnectTimer()
+
   if (resizeObserver && playerRef.value) {
     resizeObserver.disconnect()
   }
@@ -492,16 +790,19 @@ onBeforeUnmount(async () => {
   await cleanup()
 })
 
-defineExpose<{
-  getDiagnostics: () => Promise<Diagnostics>
-}>({
-  getDiagnostics
+defineExpose({
+  getDiagnostics,
+  reconnect: manualReconnect,
+  connectionStatus,
+  sendData,
+  sendBinaryData
 })
 </script>
 
 <style scoped>
 .player {
   width: 100%;
+  min-height: 200px;
   background: black;
   position: relative;
   border-radius: 14px;
@@ -521,6 +822,8 @@ defineExpose<{
   width: 100%;
   height: 100%;
   background: black;
+  position: relative;
+  z-index: 1;
 }
 
 .overlay {
@@ -532,6 +835,65 @@ defineExpose<{
   font-size: 14px;
   pointer-events: none;
   backdrop-filter: blur(6px);
+  z-index: 10;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retry-hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.error-detail {
+  font-size: 12px;
+  opacity: 0.8;
+  max-width: 80%;
+  text-align: center;
+  word-break: break-word;
+}
+
+.retry-btn {
+  pointer-events: auto;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .overlay-info {
@@ -539,8 +901,27 @@ defineExpose<{
   background: linear-gradient(135deg, rgba(31,41,55,0.8), rgba(17,24,39,0.8));
 }
 
+.overlay-warning {
+  color: #fef3c7;
+  background: linear-gradient(135deg, rgba(146, 64, 14, 0.85), rgba(180, 83, 9, 0.85));
+}
+
 .overlay-error {
   color: #fecaca;
   background: linear-gradient(135deg, rgba(127,29,29,0.85), rgba(185,28,28,0.85));
+}
+
+.overlay-success {
+  color: #e5e7eb;
+  background: rgba(0, 0, 0, 0.6);
+  animation: fadeOut 2s forwards;
+  animation-delay: 1s;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 </style>

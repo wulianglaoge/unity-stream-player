@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      // 直接引用组件源码，实现热更新
+      '@shisan/unity-stream-player': resolve(__dirname, '../../packages/unity-stream-player/src/index.ts')
     }
   },
   server: {
