@@ -1,0 +1,60 @@
+{
+  "name": "@your-scope/unity-stream-player",
+  "version": "1.0.0",
+  "description": "Vue 3 component for Unity Render Streaming WebRTC player",
+  "type": "module",
+  "main": "./dist/unity-stream-player.umd.js",
+  "module": "./dist/unity-stream-player.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/unity-stream-player.es.js",
+      "require": "./dist/unity-stream-player.umd.js"
+    },
+    "./dist/style.css": {
+      "import": "./dist/style.css",
+      "require": "./dist/style.css"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "vue3",
+    "vue",
+    "unity",
+    "webrtc",
+    "render-streaming",
+    "video",
+    "player"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/webrtc-iframe-vue.git",
+    "directory": "packages/unity-stream-player"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/webrtc-iframe-vue/issues"
+  },
+  "homepage": "https://github.com/your-username/webrtc-iframe-vue#readme",
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vite-plugin-dts": "^3.9.1",
+    "vue": "^3.4.0",
+    "vue-tsc": "^2.2.12"
+  }
+}
