@@ -60,6 +60,31 @@ const wsUrl = 'ws://localhost:8080/signaling'
 </template>
 ```
 
+**方式三：全局注册**
+
+如果你需要在多个页面使用组件，可以在 `main.ts` 中全局注册：
+
+```ts
+// main.ts
+import UnityStreamPlayer from './components/UnityStreamPlayer'
+
+app.use(UnityStreamPlayer)
+```
+
+然后在任意组件中直接使用：
+
+```vue
+<template>
+  <UnityStreamPlayer :signaling-url="wsUrl" />
+</template>
+
+<script setup>
+const wsUrl = 'ws://localhost:8080/signaling'
+</script>
+```
+
+> ⚠️ 注意：全局注册后，在模板中可以直接使用 `<UnityStreamPlayer />`，无需手动导入。
+
 ### 3. Props 说明
 
 | 属性名 | 类型 | 默认值 | 说明 |

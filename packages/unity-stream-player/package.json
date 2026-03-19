@@ -1,6 +1,6 @@
 {
   "name": "unity-stream-player",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Vue 3 component for Unity Render Streaming WebRTC player",
   "type": "module",
   "main": "./dist/unity-stream-player.umd.js",

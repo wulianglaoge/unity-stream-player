@@ -1,5 +1,11 @@
 # unity-stream-player
 
+## 1.0.4
+
+### Patch Changes
+
+- 4166814: 消除组件默认自带的部分样式，保证用户自定义话
+
 ## 1.0.3
 
 ### Patch Changes
