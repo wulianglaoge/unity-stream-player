@@ -805,7 +805,6 @@ defineExpose({
   min-height: 200px;
   background: black;
   position: relative;
-  border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }

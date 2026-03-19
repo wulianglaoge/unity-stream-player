@@ -14,7 +14,7 @@
           </button>
           <a
             class="btn secondary"
-            href="https://github.com/your-repo/unity-stream-player"
+            href="https://github.com/wulianglaoge/unity-stream-player"
             target="_blank"
           >
             组件文档
