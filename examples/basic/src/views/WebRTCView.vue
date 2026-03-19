@@ -68,7 +68,6 @@
           :enable-reconnect="enableReconnect"
           :max-reconnect-attempts="maxReconnectAttempts"
           :reconnect-interval="reconnectInterval"
-          :show-connected-indicator="true"
           data-channel-label="data"
           @connect="handleConnect"
           @disconnect="handleDisconnect"

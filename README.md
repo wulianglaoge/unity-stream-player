@@ -260,7 +260,6 @@ pnpm run version-packages
 pnpm run release
 ```
 
-> **注意**: 发布前需要配置 npm 认证信息 (`npm login`)。
 
 ### 开发工作流示例
 
@@ -294,25 +293,6 @@ pnpm run release          # 发布到 npm
 ├── package.json
 └── README.md
 ```
-
-## 配置说明
-
-### 发布配置
-
-在发布前，请修改以下内容：
-
-1. **包名** (`packages/unity-stream-player/package.json`)
-   - 当前包名: `unity-stream-player`
-
-2. **作者信息**
-   - 修改 `author` 字段为你的信息
-
-3. **仓库地址**
-   - 更新 `repository.url` 和 `bugs.url` 为你的 GitHub 仓库地址
-
-4. **npm 认证**
-   - 运行 `npm login` 登录 npm 账号
-   - 如果是私有组织包，需要付费账号
 
 ## 许可证
 

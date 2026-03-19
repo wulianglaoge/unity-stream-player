@@ -1475,7 +1475,7 @@ const Mt = {
   for (const [t, s] of e)
     n[t] = s;
   return n;
-}, Ht = /* @__PURE__ */ $t(Nt, [["__scopeId", "data-v-5f1e8988"]]), Wt = {
+}, Ht = /* @__PURE__ */ $t(Nt, [["__scopeId", "data-v-48f264d1"]]), Wt = {
   install(l) {
     l.component("UnityStreamPlayer", Ht);
   }
