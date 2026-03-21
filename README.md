@@ -230,6 +230,47 @@ function handleStatusChange(status, prevStatus) {
 </template>
 ```
 
+## 快速启动示例项目
+
+示例项目位于 `examples/basic/`，首次启动前需要配置环境变量：
+
+### 1. 复制配置文件
+
+**macOS / Linux:**
+
+```bash
+cd examples/basic
+cp .env.example .env
+```
+
+**Windows:**
+
+```cmd
+cd examples\basic
+copy .env.example .env
+```
+
+### 2. 修改配置
+
+编辑 `.env` 文件，将 `你的IP地址` 替换为实际的 Unity Render Streaming 服务器地址：
+
+```bash
+VITE_URS_SERVER_URL=http://192.168.1.100:80
+VITE_URS_SIGNAL_URL=ws://192.168.1.100:80
+VITE_IFRAME_RENDER_URL=http://192.168.1.100:80/receiver/index.html
+```
+
+### 3. 启动开发服务器
+
+返回项目根目录启动：
+
+```bash
+cd ../..
+pnpm run dev
+```
+
+---
+
 ## 开发
 
 **所有命令都在项目根目录执行**，无需进入子目录。
